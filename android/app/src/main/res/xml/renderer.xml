@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<renderer-preferences
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <renderer-prioritization>
+        <hardware>high</hardware>
+        <software>medium</software>
+        <synchronization>medium</synchronization>
+        <power>medium</power>
+    </renderer-prioritization>
+    <renderer-features>
+        <feature name="ContextPriority">high</feature>
+        <feature name="PipelineCache">enabled</feature>
+        <feature name="MultisamplingPerformanceMode">enabled</feature>
+    </renderer-features>
+</renderer-preferences>
