@@ -6,7 +6,88 @@ plugins {
     id("com.google.gms.google-services") version "4.4.2" apply false
 }
 
-apply(plugin = "com.google.gms.google-services") // ✅ Apply it here for Firebase
+// Client keys are not committed. Copy .env.example to .env at the repo root,
+// or export the same variables in the environment (environment wins).
+fun loadDotEnv(envFile: java.io.File): Map<String, String> {
+    if (!envFile.isFile) {
+        return emptyMap()
+    }
+    val values = linkedMapOf<String, String>()
+    for (rawLine in envFile.readLines()) {
+        var line = rawLine.trim().removePrefix("\uFEFF")
+        if (line.isEmpty() || line.startsWith("#")) {
+            continue
+        }
+        if (line.startsWith("export ")) {
+            line = line.removePrefix("export ").trim()
+        }
+        val separator = line.indexOf('=')
+        if (separator <= 0) {
+            continue
+        }
+        val key = line.substring(0, separator).trim()
+        var value = line.substring(separator + 1).trim()
+        if (value.length >= 2 &&
+            ((value.startsWith("\"") && value.endsWith("\"")) ||
+                (value.startsWith("'") && value.endsWith("'")))
+        ) {
+            value = value.substring(1, value.length - 1)
+        }
+        values[key] = value
+    }
+    return values
+}
+
+fun configValue(dotenv: Map<String, String>, name: String, fallback: String): String {
+    val fromEnv = System.getenv(name)?.trim().orEmpty()
+    if (fromEnv.isNotEmpty()) {
+        return fromEnv
+    }
+    val fromFile = dotenv[name]?.trim().orEmpty()
+    if (fromFile.isNotEmpty()) {
+        return fromFile
+    }
+    return fallback
+}
+
+fun jsonEscape(value: String): String {
+    val escaped = StringBuilder()
+    for (ch in value) {
+        when (ch) {
+            '\\' -> escaped.append("\\\\")
+            '"' -> escaped.append("\\\"")
+            '\n' -> escaped.append("\\n")
+            '\r' -> escaped.append("\\r")
+            '\t' -> escaped.append("\\t")
+            else -> escaped.append(ch)
+        }
+    }
+    return escaped.toString()
+}
+
+val dotenv = loadDotEnv(rootProject.file("../.env"))
+val googleMapsApiKey = configValue(dotenv, "GOOGLE_MAPS_API_KEY", "")
+val firebaseApiKey = configValue(dotenv, "FIREBASE_API_KEY", "MISSING_FIREBASE_API_KEY")
+val googleOauthClientId = configValue(dotenv, "GOOGLE_OAUTH_CLIENT_ID", "")
+
+val googleServicesExample = file("google-services.json.example")
+if (!googleServicesExample.isFile) {
+    error("Missing android/app/google-services.json.example")
+}
+val googleServicesTemplate = googleServicesExample.readText()
+if (!googleServicesTemplate.contains("__FIREBASE_API_KEY__")) {
+    error("google-services.json.example is missing the __FIREBASE_API_KEY__ placeholder")
+}
+val generatedGoogleServices = googleServicesTemplate.replace(
+    "__FIREBASE_API_KEY__",
+    jsonEscape(firebaseApiKey),
+)
+val googleServicesJson = file("google-services.json")
+if (!googleServicesJson.isFile || googleServicesJson.readText() != generatedGoogleServices) {
+    googleServicesJson.writeText(generatedGoogleServices)
+}
+
+apply(plugin = "com.google.gms.google-services") // Apply it here for Firebase
 
 android {
     namespace = "com.example.carwaan"
@@ -42,8 +123,9 @@ android {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64")
         }
         
-        // Add Google OAuth configuration
-        manifestPlaceholders["googleClientId"] = "1038122554209-0k201vnjvrr4igv5ci6e4momk1j4fcas.apps.googleusercontent.com"
+        // Injected from .env / the process environment. See .env.example.
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = googleMapsApiKey
+        manifestPlaceholders["googleClientId"] = googleOauthClientId
     }
 
     buildTypes {
