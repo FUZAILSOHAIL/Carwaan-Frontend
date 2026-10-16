@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAnj2sD_LxKEgBMjlUJNdAIN2KT2vKLHuA"
+          "current_key": "__FIREBASE_API_KEY__"
         }
       ],
       "services": {
